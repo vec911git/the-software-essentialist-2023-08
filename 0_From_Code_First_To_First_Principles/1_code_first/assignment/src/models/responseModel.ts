@@ -1,6 +1,6 @@
 export class APIResponse {
-    error: string | undefined;
-    data: string | undefined;
+    error: any | undefined;
+    data: any | undefined;
     success: boolean | undefined;
 
     public constructor(init?:Partial<APIResponse>) {

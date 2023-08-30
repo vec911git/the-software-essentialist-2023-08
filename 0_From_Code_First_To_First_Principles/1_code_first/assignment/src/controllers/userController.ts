@@ -1,6 +1,5 @@
 import { Request, Response } from 'express';
-import { Prisma } from '@prisma/client'
-import { PrismaClient } from '../../generated/prisma-client';
+import { PrismaClient, Prisma } from '@prisma/client'
 import { APIResponse } from '../models/responseModel'
 import generator from 'generate-password-ts';
 
@@ -8,12 +7,8 @@ const prisma = new PrismaClient();
 
 export const createUser = async (req: Request, res: Response) => {
   try {
+    validateUserData(req, res);
     const { email, userName, firstName, lastName } = req.body;
-    if (email === undefined || email.length === 0 || userName === undefined || userName.length === 0 || 
-      firstName === undefined || firstName.length === 0 || lastName === undefined || lastName.length === 0)
-      console.log(`lastname = ${lastName}`);
-      res.status(400).json(new APIResponse({ data: "ValidationError'", success: false }));
-
     const randomPassword = generator.generate({
       numbers: true,
       symbols: true,
@@ -24,53 +19,67 @@ export const createUser = async (req: Request, res: Response) => {
       data: { email, userName, firstName, lastName, password: randomPassword },
     });
 
-    res.status(201).json(new APIResponse({ data: JSON.stringify(user), success: true }));
+    return res.status(201).json(new APIResponse({ data: { id: user.id, email, userName, firstName, lastName }, success: true }));
   } catch (error) {
-    /* if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      // The .code property can be accessed in a type-safe manner
-      if (error.code === 'P2002') {
-        console.log(
-          'There is a unique constraint violation, a new user cannot be created with this email'
-        )
-      }
-    } */
-    res.status(500).json(new APIResponse({ error: JSON.stringify(error), success: false }));
+    handleError(error, res);
   }
 };
 
 export const editUser = async (req: Request, res: Response) => {
   try {
+    validateUserData(req, res);
     const userId = parseInt(req.params.userId);
     const { email, userName, firstName, lastName } = req.body;
-    if (email === null || email.length === 0 || userName === null || userName.length === 0 || 
-      firstName === null || firstName.length === 0 || lastName === null || lastName.length === 0)
-      res.status(400).json(new APIResponse({ data: "ValidationError'", success: false }));
 
     const user = await prisma.user.update({
       where: { id: userId },
       data: { email, userName, firstName, lastName },
     });
 
-    res.json(new APIResponse({ data: JSON.stringify(user), success: true }));
+    return res.json(new APIResponse({ data: { id: userId, email, userName, firstName, lastName }, success: true }));
   } catch (error) {
-    res.status(500).json(new APIResponse({ error: JSON.stringify(error), success: false }));
+    handleError(error, res);
   }
 };
 
 export const getUserByEmail = async (req: Request, res: Response) => {
   try {
-    const email = req.query.email as string;
-    if (email === null || email.length === 0)
-      res.status(400).json(new APIResponse({ data: "ValidationError'", success: false }));
+    const userEmail = req.query.email as string;
 
     const user = await prisma.user.findUnique({
-      where: { email },
+      where: { email: userEmail },
     });
 
     if (user === null)
-      res.status(404).json(new APIResponse({ data: "UserNotFound'", success: false }));
-    res.json(new APIResponse({ data: JSON.stringify(user), success: true }));
+      return res.status(404).json(new APIResponse({ data: "UserNotFound'", success: false }));
+
+    const { id, email, userName, firstName, lastName } = user;
+    return res.json(new APIResponse({ data: { id, email, userName, firstName, lastName }, success: true }));
   } catch (error) {
-    res.status(500).json(new APIResponse({ error: JSON.stringify(error), success: false }));
+    handleError(error, res);
   }
 };
+
+const validateUserData = (req: Request, res: Response) => {
+  const { email, userName, firstName, lastName } = req.body;
+    if (email === undefined || email.length === 0 || userName === undefined || userName.length === 0 || 
+      firstName === undefined || firstName.length === 0 || lastName === undefined || lastName.length === 0)
+      return res.status(400).json(new APIResponse({ data: "ValidationError'", success: false }));
+}
+
+const handleError = (error: any, res: Response) => {
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    const prismaError = error as Prisma.PrismaClientKnownRequestError;
+    if (prismaError.code === 'P2002') {
+      const errorTargets = prismaError.meta?.target as Array<String>;
+      if (errorTargets[0] === 'userName')
+        return res.status(409).json(new APIResponse({ error: "UsernameAlreadyTaken", success: false }));
+      if (errorTargets[0] === 'email')
+        return res.status(409).json(new APIResponse({ error: "EmailAlreadyInUse", success: false }));
+    }
+    if (prismaError.code === 'P2025') {
+      return res.status(404).json(new APIResponse({ data: "UserNotFound'", success: false }));
+    }
+  }
+  return res.status(500).json(new APIResponse({ error: error, success: false }));
+}
