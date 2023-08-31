@@ -3,7 +3,8 @@ module.exports = {
     '^.+\\.ts?$': 'ts-jest',
   },
   testEnvironment: 'node',
-  testRegex: './src/.*\\.(test|spec)?\\.(ts|ts)$',
+  testRegex: './tests/.*\\.e2e?\\.(ts|ts)$',
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
-  roots: ['<rootDir>/src'],
+  roots: ['<rootDir>/tests'],
+  globalSetup: './tests/e2eDevTestSetup.ts'
 };
