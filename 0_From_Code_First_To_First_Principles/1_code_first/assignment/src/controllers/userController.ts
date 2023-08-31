@@ -13,14 +13,15 @@ export class UserController {
 
   public createUser = async (req: Request, res: Response) => {
     try {
-      this.validateUserData(req, res);
+      if (!this.isUserDataValid(req, res))
+        return res.status(400).json({ data: "ValidationError'", success: false });
+
       const { email, userName, firstName, lastName } = req.body;
       const randomPassword = generator.generate({
         numbers: true,
         symbols: true,
         strict: true
       });
-
       const user = await this.dbConnection.user.create({
         data: { email, userName, firstName, lastName, password: randomPassword },
       });
@@ -33,10 +34,11 @@ export class UserController {
 
   public editUser = async (req: Request, res: Response) => {
     try {
-      this.validateUserData(req, res);
+      if (!this.isUserDataValid(req, res))
+        return res.status(400).json({ data: "ValidationError'", success: false });
+
       const userId = parseInt(req.params.userId);
       const { email, userName, firstName, lastName } = req.body;
-
       const user = await this.dbConnection.user.update({
         where: { id: userId },
         data: { email, userName, firstName, lastName },
@@ -51,7 +53,6 @@ export class UserController {
   public getUserByEmail = async (req: Request, res: Response) => {
     try {
       const userEmail = req.query.email as string;
-
       const user = await this.dbConnection.user.findUnique({
         where: { email: userEmail },
       });
@@ -66,11 +67,12 @@ export class UserController {
     }
   };
 
-  private validateUserData = (req: Request, res: Response) => {
+  private isUserDataValid = (req: Request, res: Response) => {
     const { email, userName, firstName, lastName } = req.body;
       if (email === undefined || email.length === 0 || userName === undefined || userName.length === 0 || 
         firstName === undefined || firstName.length === 0 || lastName === undefined || lastName.length === 0)
-        return res.status(400).json({ data: "ValidationError'", success: false });
+        return false;
+    return true;
   }
 
   private handleError = (error: any, res: Response) => {
