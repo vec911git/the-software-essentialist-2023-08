@@ -1,13 +1,16 @@
-import express from 'express';
-import bodyParser from 'body-parser';
-import userRoutes from './routes/userRoutes';
+import { CompositionRoot } from "./shared/composition/compositionRoot";
 
-const app = express();
+const root = new CompositionRoot();
+const server = root.getWebServer();
+const db = root.getDatabase();
 
-app.use(bodyParser.json());
-app.use('/users', userRoutes);
+async function bootstrap() {
+  try {
+    await db.connect();
+    await server.start();
+  } catch (err) {
+    console.log(err);
+  }
+}
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+bootstrap ();
